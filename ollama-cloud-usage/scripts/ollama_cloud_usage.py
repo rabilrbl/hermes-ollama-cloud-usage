@@ -136,7 +136,7 @@ def _fetch_usage(cookie: str) -> dict:
 def main():
     cookie = os.getenv("OLLAMA_CLOUD_COOKIE", "").strip()
     if not cookie:
-        print(json.dumps({"error": "OLLAMA_CLOUD_COOKIE not set. Set it in ~/.hermes/.env"}))
+        print(json.dumps({"error": "OLLAMA_CLOUD_COOKIE not set. Set it in your Hermes env config"}))
         sys.exit(1)
 
     try:
