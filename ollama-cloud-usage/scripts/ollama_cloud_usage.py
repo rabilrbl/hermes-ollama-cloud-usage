@@ -133,10 +133,26 @@ def _fetch_usage(cookie: str) -> dict:
     return result
 
 
+def _load_cookie_from_env_file() -> str:
+    """Read OLLAMA_CLOUD_COOKIE from ~/.hermes/.env as a fallback."""
+    env_path = os.path.expanduser("~/.hermes/.env")
+    if not os.path.isfile(env_path):
+        return ""
+    with open(env_path) as f:
+        for line in f:
+            stripped = line.strip()
+            if stripped.startswith("OLLAMA_CLOUD_COOKIE="):
+                val = stripped.split("=", 1)[1].strip().strip('"').strip("'")
+                return val
+    return ""
+
+
 def main():
     cookie = os.getenv("OLLAMA_CLOUD_COOKIE", "").strip()
     if not cookie:
-        print(json.dumps({"error": "OLLAMA_CLOUD_COOKIE not set. Set it in your Hermes env config"}))
+        cookie = _load_cookie_from_env_file()
+    if not cookie:
+        print(json.dumps({"error": "OLLAMA_CLOUD_COOKIE not set in env or ~/.hermes/.env"}))
         sys.exit(1)
 
     try:

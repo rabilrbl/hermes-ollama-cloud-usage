@@ -41,14 +41,22 @@ If the cookie expires, repeat steps 2–4.
 
 ## How to Check Usage
 
-Use `execute_code` with the following Python snippet. It uses only stdlib (no pip installs needed):
+Use `execute_code` with the following Python snippet. It uses only stdlib (no pip installs needed). Reads the cookie from `~/.hermes/.env` if not in the environment:
 
 ```python
 import os, json, re, urllib.request
 
 cookie = os.getenv("OLLAMA_CLOUD_COOKIE", "").strip()
 if not cookie:
-    print(json.dumps({"error": "OLLAMA_CLOUD_COOKIE not set in Hermes env config"}))
+    env_path = os.path.expanduser("~/.hermes/.env")
+    if os.path.isfile(env_path):
+        with open(env_path) as f:
+            for line in f:
+                if line.strip().startswith("OLLAMA_CLOUD_COOKIE="):
+                    cookie = line.strip().split("=", 1)[1].strip().strip('"').strip("'")
+                    break
+if not cookie:
+    print(json.dumps({"error": "OLLAMA_CLOUD_COOKIE not set in env or ~/.hermes/.env"}))
     raise SystemExit(1)
 
 def parse_duration(raw):
@@ -133,4 +141,4 @@ Format the JSON output for the user in a readable way, e.g.:
 
 1. **Cookie expires.** Session cookies are short-lived. If parsing fails, re-extract the cookie and update the env var.
 2. **No usage data found.** Either the cookie is invalid/expired, or Ollama changed their dashboard HTML. Check the cookie first.
-3. **Env var must be in the Hermes env config.** Shell-only exports are not visible to Hermes gateway sessions.
+3. **Cookie not in environment.** The script falls back to reading `~/.hermes/.env` directly, so it works in `execute_code` even if the env var isn't exported to the subprocess.
