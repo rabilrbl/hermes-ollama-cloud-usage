@@ -22,59 +22,112 @@ Since Ollama Cloud has no public usage API (see [ollama/ollama#12532](https://gi
 - User wants to know their plan tier (Pro/Max) or when their session/weekly usage resets
 - User asks "how much Ollama Cloud do I have left?"
 
-## Setup
+## Prerequisites
 
-Set `OLLAMA_CLOUD_COOKIE` in `~/.hermes/.env`:
-
-```bash
-# ~/.hermes/.env
-OLLAMA_CLOUD_COOKIE="auth=xxx; other=yyy"
-```
+Requires `OLLAMA_CLOUD_COOKIE` env var set in `~/.hermes/.env`.
 
 ### Getting your cookie
 
 1. Open a browser and log in to https://ollama.com/settings
 2. Open DevTools → **Application** (or **Storage** on Firefox) → **Cookies**
 3. Copy all cookies for `ollama.com` as a single string (e.g. `auth=xxx; other=yyy`)
-4. Paste into `~/.hermes/.env` as shown above
+4. Add to `~/.hermes/.env`: `OLLAMA_CLOUD_COOKIE="auth=xxx; other=yyy"`
 5. Restart Hermes or run `/reset` if mid-session
 
 If the cookie expires, repeat steps 2–4.
 
-## Usage
+## How to Check Usage
 
-Run the script via terminal:
+Use `execute_code` with the following Python snippet. It uses only stdlib (no pip installs needed):
 
-```bash
-python3 ~/.hermes/skills/automation/ollama-cloud-usage/scripts/ollama_cloud_usage.py
+```python
+import os, json, re, urllib.request
+
+cookie = os.getenv("OLLAMA_CLOUD_COOKIE", "").strip()
+if not cookie:
+    print(json.dumps({"error": "OLLAMA_CLOUD_COOKIE not set in ~/.hermes/.env"}))
+    raise SystemExit(1)
+
+def parse_duration(raw):
+    return raw.strip().replace("\n", " ").replace("  ", " ")
+
+def progress_bar(pct, w=20):
+    f = max(0, min(w, int(round(pct / 100.0 * w))))
+    return chr(9608)*f + chr(9617)*(w-f)
+
+req = urllib.request.Request("https://ollama.com/settings", headers={
+    "Cookie": cookie,
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+})
+with urllib.request.urlopen(req, timeout=30) as resp:
+    html = resp.read().decode("utf-8", errors="replace")
+
+plan = "Unknown"
+pm = re.search(r'<span[^>]*class="[^"]*(?:inline-flex|rounded|badge)[^"]*"[^>]*>(Pro|Max)</span>', html, re.I)
+if not pm:
+    pm = re.search(r'class="[^"]*(?:inline-flex|rounded)[^"]*"[^>]*>\s*(Pro|Max)\s*</span>', html, re.I)
+if pm:
+    plan = pm.group(1).strip()
+
+session, weekly = {}, {}
+# Session usage
+sm = re.search(r'Session usage\s*</div>\s*<div[^>]*>\s*([\d.]+%)\s*used', html, re.I|re.S)
+if not sm:
+    sm = re.search(r'<div[^>]*>\s*Session usage\s*</div>\s*<div[^>]*>\s*([\d.]+%)\s*used', html, re.I|re.S)
+if sm:
+    session["percent"] = float(sm.group(1).replace("%",""))
+    rm = re.search(r'Session usage.*?Resets?\s+in\s+([^<]+)', html, re.I|re.S)
+    if rm: session["resets_in"] = parse_duration(rm.group(1))
+
+# Weekly usage
+wm = re.search(r'Weekly usage\s*</div>\s*<div[^>]*>\s*([\d.]+%)\s*used', html, re.I|re.S)
+if not wm:
+    wm = re.search(r'<div[^>]*>\s*Weekly usage\s*</div>\s*<div[^>]*>\s*([\d.]+%)\s*used', html, re.I|re.S)
+if wm:
+    weekly["percent"] = float(wm.group(1).replace("%",""))
+    rm = re.search(r'Weekly usage.*?Resets?\s+in\s+([^<]+)', html, re.I|re.S)
+    if rm: weekly["resets_in"] = parse_duration(rm.group(1))
+
+# Fallback
+if not session or not weekly:
+    ap = re.findall(r'([\d.]+%)\s*used', html, re.I)
+    ar = re.findall(r'Resets?\s+in\s+([^<\n]+)', html, re.I)
+    if len(ap) >= 2 and not session:
+        session["percent"] = float(ap[0].replace("%",""))
+        if ar: session["resets_in"] = parse_duration(ar[0])
+    if len(ap) >= 2 and not weekly:
+        weekly["percent"] = float(ap[1].replace("%",""))
+        if len(ar) >= 2: weekly["resets_in"] = parse_duration(ar[1])
+
+if not session and not weekly:
+    print(json.dumps({"error": "Could not parse usage data. Cookie may be invalid/expired or page layout changed."}))
+    raise SystemExit(1)
+
+sp = session.get("percent", 0.0)
+wp = weekly.get("percent", 0.0)
+print(json.dumps({
+    "plan": plan,
+    "session_percent": sp,
+    "session_resets_in": session.get("resets_in", "?"),
+    "weekly_percent": wp,
+    "weekly_resets_in": weekly.get("resets_in", "?"),
+    "session_bar": progress_bar(sp),
+    "weekly_bar": progress_bar(wp),
+}, indent=2))
 ```
 
-Or use `execute_code` / `terminal` to invoke it. The script reads `OLLAMA_CLOUD_COOKIE` from the environment.
+## Presenting Results
 
-## Output
-
-The script returns JSON:
-
-```json
-{
-  "plan": "Pro",
-  "session_percent": 0.1,
-  "session_resets_in": "3 hours",
-  "weekly_percent": 13.3,
-  "weekly_resets_in": "4 days",
-  "session_bar": "█░░░░░░░░░░░░░░░░░░░",
-  "weekly_bar": "███░░░░░░░░░░░░░░░░░"
-}
-```
-
-Present results to the user in a readable format, e.g.:
+Format the JSON output for the user in a readable way, e.g.:
 
 - **Plan:** Pro
-- **Session:** 0.1% used, resets in 3 hours
-- **Weekly:** 13.3% used, resets in 4 days
+- **Session:** 0.1% used, resets in 3 hours ▏█░░░░░░░░░░░░░░░░░░░
+- **Weekly:** 13.3% used, resets in 4 days ▏███░░░░░░░░░░░░░░░░░
 
 ## Common Pitfalls
 
-1. **Cookie expires.** The session cookie is short-lived. If the script returns an error about parsing, re-extract the cookie and update `.env`.
-2. **No usage data found.** This means either the cookie is invalid/expired, or Ollama changed their dashboard HTML. Check the cookie first, then open an issue on the skill repo.
-3. **Don't hardcode the cookie.** Always use the `OLLAMA_CLOUD_COOKIE` env var so it can be updated in one place.
+1. **Cookie expires.** Session cookies are short-lived. If parsing fails, re-extract the cookie and update the env var.
+2. **No usage data found.** Either the cookie is invalid/expired, or Ollama changed their dashboard HTML. Check the cookie first.
+3. **Env var must be in .hermes/.env.** Shell-only exports are not visible to Hermes gateway sessions.
