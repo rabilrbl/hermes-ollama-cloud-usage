@@ -24,14 +24,17 @@ Since Ollama Cloud has no public usage API (see [ollama/ollama#12532](https://gi
 
 ## Prerequisites
 
-Requires `OLLAMA_CLOUD_COOKIE` env var set in `~/.hermes/.env`.
+Requires the `OLLAMA_CLOUD_COOKIE` environment variable in your Hermes environment config.
 
 ### Getting your cookie
 
 1. Open a browser and log in to https://ollama.com/settings
 2. Open DevTools → **Application** (or **Storage** on Firefox) → **Cookies**
 3. Copy all cookies for `ollama.com` as a single string (e.g. `auth=xxx; other=yyy`)
-4. Add to `~/.hermes/.env`: `OLLAMA_CLOUD_COOKIE="auth=xxx; other=yyy"`
+4. Add to your Hermes env config file (located in your Hermes home directory, under the filename `.env`):
+   ```
+   OLLAMA_CLOUD_COOKIE="auth=xxx; other=yyy"
+   ```
 5. Restart Hermes or run `/reset` if mid-session
 
 If the cookie expires, repeat steps 2–4.
@@ -45,7 +48,7 @@ import os, json, re, urllib.request
 
 cookie = os.getenv("OLLAMA_CLOUD_COOKIE", "").strip()
 if not cookie:
-    print(json.dumps({"error": "OLLAMA_CLOUD_COOKIE not set in ~/.hermes/.env"}))
+    print(json.dumps({"error": "OLLAMA_CLOUD_COOKIE not set in Hermes env config"}))
     raise SystemExit(1)
 
 def parse_duration(raw):
@@ -130,4 +133,4 @@ Format the JSON output for the user in a readable way, e.g.:
 
 1. **Cookie expires.** Session cookies are short-lived. If parsing fails, re-extract the cookie and update the env var.
 2. **No usage data found.** Either the cookie is invalid/expired, or Ollama changed their dashboard HTML. Check the cookie first.
-3. **Env var must be in .hermes/.env.** Shell-only exports are not visible to Hermes gateway sessions.
+3. **Env var must be in the Hermes env config.** Shell-only exports are not visible to Hermes gateway sessions.

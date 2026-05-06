@@ -1,13 +1,13 @@
 # Hermes Skill: Ollama Cloud Usage
 
-Check your Ollama Cloud Pro / Max subscription usage right inside Hermes Agent.
+Check your Ollama Cloud Pro/Max subscription usage right inside Hermes Agent.
 
 Since Ollama Cloud does not expose a public usage API (see [ollama/ollama#12532](https://github.com/ollama/ollama/issues/12532)), this skill scrapes your usage stats from `https://ollama.com/settings` using your authenticated session cookie.
 
 ## Install
 
 ```bash
-hermes skills install https://github.com/rabilrbl/hermes-ollama-cloud-usage
+hermes skills install rabilrbl/hermes-ollama-cloud-usage/ollama-cloud-usage
 ```
 
 ## Getting your cookie
@@ -15,7 +15,7 @@ hermes skills install https://github.com/rabilrbl/hermes-ollama-cloud-usage
 1. Open a browser and log in to [https://ollama.com/settings](https://ollama.com/settings).
 2. Open DevTools → **Application** (or **Storage** on Firefox) → **Cookies**.
 3. Copy all cookies for `ollama.com` (e.g. `auth=xxx; other=yyy`).
-4. Set it in `~/.hermes/.env`:
+4. Set it in your Hermes env config (located in your Hermes home directory, under the filename `.env`):
 
 ```bash
 OLLAMA_CLOUD_COOKIE="auth=xxx; other=yyy"
@@ -54,7 +54,7 @@ The skill returns:
 ## Limitations
 
 - Works for **Pro** and **Max** tiers shown on the Ollama Cloud settings page.
-- Requires a valid browser session cookie. If the cookie expires, re-copy it and update `~/.hermes/.env`.
+- Requires a valid browser session cookie. If the cookie expires, re-copy it and update your env config.
 - Scrapes HTML, so the parser may need updates if Ollama changes the dashboard layout.
 
 ## License
