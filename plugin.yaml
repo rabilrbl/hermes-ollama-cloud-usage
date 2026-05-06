@@ -1,0 +1,9 @@
+name: ollama-cloud-usage
+version: 1.0.0
+description: Check your Ollama Cloud Pro / Max usage from within Hermes Agent
+requires_env:
+  - name: OLLAMA_CLOUD_COOKIE
+    description: "Your ollama.com session cookie string (e.g. auth=xxx; other=yyy). Extract from browser DevTools → Application → Cookies after logging in at https://ollama.com/settings"
+    secret: true
+provides_tools:
+  - check_ollama_cloud_usage
