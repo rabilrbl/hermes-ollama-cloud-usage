@@ -1,26 +1,23 @@
-# Hermes Plugin: Ollama Cloud Usage
+# Hermes Skill: Ollama Cloud Usage
 
 Check your Ollama Cloud Pro / Max subscription usage right inside Hermes Agent.
 
-Since Ollama Cloud does not expose a public usage API (see [ollama/ollama#12532](https://github.com/ollama/ollama/issues/12532)), this plugin scrapes your usage stats from `https://ollama.com/settings` using your authenticated session cookie.
+Since Ollama Cloud does not expose a public usage API (see [ollama/ollama#12532](https://github.com/ollama/ollama/issues/12532)), this skill scrapes your usage stats from `https://ollama.com/settings` using your authenticated session cookie.
 
 ## Install
 
 ```bash
-hermes plugins install https://github.com/rabilrbl/hermes-ollama-cloud-usage
+hermes skills install https://github.com/rabilrbl/hermes-ollama-cloud-usage
 ```
-
-During installation you will be prompted to enter your Ollama Cloud session cookie (`OLLAMA_CLOUD_COOKIE`). The value is saved to `~/.hermes/.env`.
 
 ## Getting your cookie
 
 1. Open a browser and log in to [https://ollama.com/settings](https://ollama.com/settings).
 2. Open DevTools → **Application** (or **Storage** on Firefox) → **Cookies**.
 3. Copy all cookies for `ollama.com` (e.g. `auth=xxx; other=yyy`).
-4. Paste the raw cookie string when prompted during install, or set it manually:
+4. Set it in `~/.hermes/.env`:
 
 ```bash
-# ~/.hermes/.env
 OLLAMA_CLOUD_COOKIE="auth=xxx; other=yyy"
 ```
 
@@ -34,11 +31,11 @@ Ask Hermes about your Ollama Cloud usage:
 Check my Ollama Cloud usage
 ```
 
-The tool returns:
-- Plan tier (Pro / Max)
-- Session usage % and reset timer
-- Weekly usage % and reset timer
-- Simple ASCII progress bars
+The skill returns:
+- **Plan tier** (Pro / Max)
+- **Session usage** % and reset timer
+- **Weekly usage** % and reset timer
+- ASCII progress bars
 
 ## Example output
 

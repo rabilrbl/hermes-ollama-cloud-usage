@@ -1,6 +1,10 @@
+#!/usr/bin/env python3
+"""Check Ollama Cloud subscription usage by scraping the settings page."""
+
 import json
 import os
 import re
+import sys
 import urllib.request
 
 
@@ -33,13 +37,20 @@ def _fetch_usage(cookie: str) -> dict:
 
     # Plan tier badge (e.g. Pro, Max)
     plan = "Unknown"
-    plan_match = re.search(r'<span[^>]*class="[^"]*(?:inline-flex|rounded|badge)[^"]*"[^>]*>(Pro|Max)</span>', html, re.IGNORECASE)
+    plan_match = re.search(
+        r'<span[^>]*class="[^"]*(?:inline-flex|rounded|badge)[^"]*"[^>]*>(Pro|Max)</span>',
+        html,
+        re.IGNORECASE,
+    )
     if not plan_match:
-        plan_match = re.search(r'class="[^"]*(?:inline-flex|rounded)[^"]*"[^>]*>\s*(Pro|Max)\s*</span>', html, re.IGNORECASE)
+        plan_match = re.search(
+            r'class="[^"]*(?:inline-flex|rounded)[^"]*"[^>]*>\s*(Pro|Max)\s*</span>',
+            html,
+            re.IGNORECASE,
+        )
     if plan_match:
         plan = plan_match.group(1).strip()
 
-    # Find usage blocks
     result = {
         "plan": plan,
         "session": {},
@@ -53,7 +64,6 @@ def _fetch_usage(cookie: str) -> dict:
         re.IGNORECASE | re.DOTALL,
     )
     if not session_label_match:
-        # Fallback: search near "Session usage" text anywhere
         session_near = re.search(
             r'Session usage\s*</div>\s*<div[^>]*>\s*([\d.]+%)\s*used',
             html,
@@ -63,11 +73,9 @@ def _fetch_usage(cookie: str) -> dict:
             session_label_match = session_near
 
     if session_label_match:
-        pct_text = session_label_match.group(1)
-        pct = float(pct_text.replace("%", ""))
+        pct = float(session_label_match.group(1).replace("%", ""))
         result["session"]["percent"] = pct
 
-        # Reset timer near this section
         reset_match = re.search(
             r'Session usage.*?Resets?\s+in\s+([^<]+)',
             html,
@@ -92,8 +100,7 @@ def _fetch_usage(cookie: str) -> dict:
             weekly_label_match = weekly_near
 
     if weekly_label_match:
-        pct_text = weekly_label_match.group(1)
-        pct = float(pct_text.replace("%", ""))
+        pct = float(weekly_label_match.group(1).replace("%", ""))
         result["weekly"]["percent"] = pct
 
         reset_match = re.search(
@@ -106,8 +113,8 @@ def _fetch_usage(cookie: str) -> dict:
 
     # Fallback: generic percentage search if structured parsing failed
     if not result["session"] or not result["weekly"]:
-        all_percents = re.findall(r'([\d.]+%)\s*used', html, re.IGNORECASE)
-        all_resets = re.findall(r'Resets?\s+in\s+([^<\n]+)', html, re.IGNORECASE)
+        all_percents = re.findall(r"([\d.]+%)\s*used", html, re.IGNORECASE)
+        all_resets = re.findall(r"Resets?\s+in\s+([^<\n]+)", html, re.IGNORECASE)
         if len(all_percents) >= 2 and not result["session"]:
             result["session"]["percent"] = float(all_percents[0].replace("%", ""))
             if len(all_resets) >= 1:
@@ -118,34 +125,41 @@ def _fetch_usage(cookie: str) -> dict:
                 result["weekly"]["resets_in"] = _parse_duration(all_resets[1])
 
     if not result["session"] and not result["weekly"]:
-        raise RuntimeError("Could not parse usage data from Ollama Cloud dashboard. The page layout may have changed, or the cookie may be invalid/expired.")
+        raise RuntimeError(
+            "Could not parse usage data from Ollama Cloud dashboard. "
+            "The page layout may have changed, or the cookie may be invalid/expired."
+        )
 
     return result
 
 
-def check_ollama_cloud_usage(args: dict = None, **kwargs) -> str:
-    """Fetch and return Ollama Cloud usage as JSON."""
+def main():
     cookie = os.getenv("OLLAMA_CLOUD_COOKIE", "").strip()
     if not cookie:
-        return json.dumps({"error": "OLLAMA_CLOUD_COOKIE not set. Set it in ~/.hermes/.env"})
+        print(json.dumps({"error": "OLLAMA_CLOUD_COOKIE not set. Set it in ~/.hermes/.env"}))
+        sys.exit(1)
 
     try:
         data = _fetch_usage(cookie)
     except Exception as e:
-        return json.dumps({"error": str(e)})
+        print(json.dumps({"error": str(e)}))
+        sys.exit(1)
 
-    plan = data.get("plan", "Unknown")
     session_pct = data.get("session", {}).get("percent", 0.0)
     session_reset = data.get("session", {}).get("resets_in", "?")
     weekly_pct = data.get("weekly", {}).get("percent", 0.0)
     weekly_reset = data.get("weekly", {}).get("resets_in", "?")
 
-    return json.dumps({
-        "plan": plan,
+    print(json.dumps({
+        "plan": data.get("plan", "Unknown"),
         "session_percent": session_pct,
         "session_resets_in": session_reset,
         "weekly_percent": weekly_pct,
         "weekly_resets_in": weekly_reset,
         "session_bar": _make_progress_bar(session_pct),
         "weekly_bar": _make_progress_bar(weekly_pct),
-    })
+    }, indent=2))
+
+
+if __name__ == "__main__":
+    main()
